@@ -47,6 +47,10 @@ svg text { fill: var(--text-3); font-size: 11px; font-variant-numeric: tabular-n
 .hit { fill: transparent; }
 svg text.lab { fill: var(--text-2); font-weight: 600; }
 .guide { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 3; }
+.bar { fill: var(--series); pointer-events: none; }
+.barhit { fill: transparent; }
+.barhit:hover { fill: var(--row); }
+svg text.lab { pointer-events: none; }
 .gridline { stroke: var(--grid); stroke-width: 1; }
 .base { stroke: var(--line); stroke-width: 1; }
 .trend { fill: none; stroke: var(--series); stroke-width: 2; }
@@ -73,8 +77,16 @@ td.title { min-width: 280px; }
 .pager div { display: flex; gap: 6px; }
 footer { margin-top: 40px; color: var(--text-3); font-size: 13px; }
 details { margin-top: 10px; font-size: 13px; color: var(--text-2); }
-details table { margin-top: 6px; max-width: 320px; }
+details table { margin-top: 6px; max-width: 420px; }
 details td, details th { padding: 3px 8px; }
+.sectionhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin: 40px 0 8px; }
+.sectionhead h2 { margin: 0; }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 6px 6px 0; }
+.seg button[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--surface); }
+.explain { color: var(--text-2); margin: 0 0 12px; max-width: 76ch; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -84,7 +96,14 @@ details td, details th { padding: 3px 8px; }
   <p class="sub" id="sub">Loading…</p>
   <div class="tiles" id="tiles"></div>
 
-  <h2>Score distributions (CDF)</h2>
+  <div class="sectionhead">
+    <h2>Score distributions</h2>
+    <div class="seg" role="group" aria-label="Chart type">
+      <button type="button" id="viewCdf" aria-pressed="true">CDF curves</button>
+      <button type="button" id="viewHist" aria-pressed="false">Histograms</button>
+    </div>
+  </div>
+  <p class="explain" id="explain"></p>
   <div class="grid2">
     <div class="chart"><h3>Mean rating per paper</h3><p class="note" id="meanNote"></p><div id="meanChart"></div></div>
     <div class="chart"><h3>Individual ratings</h3><p class="note" id="ratingNote"></p><div id="ratingChart"></div></div>
@@ -141,12 +160,16 @@ function niceMax(v) {
   for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p;
   return v;
 }
+// Running totals for [[value, count], ...] sorted by value.
+function cumulative(data) {
+  const total = data.reduce((sum, d) => sum + d[1], 0);
+  let running = 0;
+  return data.map(([v, c]) => { running += c; return { v, c, n: running, p: running / total }; });
+}
 // Empirical CDF drawn as a step line. data is [[value, count], ...] sorted by value.
 function cdfChart(host, data, { w = 480, h = 240, name, unit, describe, xStep }) {
   const m = { t: 20, r: 12, b: 24, l: 42 }, iw = w - m.l - m.r, ih = h - m.t - m.b;
-  const total = data.reduce((sum, d) => sum + d[1], 0);
-  let running = 0;
-  const pts = data.map(([v, c]) => { running += c; return { v, n: running, p: running / total }; });
+  const pts = cumulative(data);
   const labelled = pts.length <= 6;
   const lo = pts[0].v, hi = pts[pts.length - 1].v, pad = Math.max((hi - lo) * (labelled ? .14 : .06), .1);
   const X = v => m.l + iw * (v - (lo - pad)) / (hi - lo + 2 * pad), Y = p => m.t + ih * (1 - p);
@@ -187,7 +210,45 @@ function cdfChart(host, data, { w = 480, h = 240, name, unit, describe, xStep })
     tipEl.style.display = "none"; guide.setAttribute("visibility", "hidden"); mark.setAttribute("visibility", "hidden");
   });
   host.replaceChildren(svg);
-  return pts;
+}
+// Most papers have three reviews, so their means fall on multiples of 1/3. Bins of that
+// width centered on those values avoid the empty gaps that round-number bins would leave.
+function thirdsBins(data) {
+  const base = Math.floor(data[0][0]), bins = new Map();
+  for (const [v, c] of data) {
+    const i = Math.round((v - base) * 3);
+    bins.set(i, (bins.get(i) || 0) + c);
+  }
+  const last = Math.max(...bins.keys()), out = [];
+  for (let i = 0; i <= last; i++) {
+    const v = base + i / 3;
+    out.push({ v, c: bins.get(i) || 0, range: `${(v - 1 / 6).toFixed(2)} to ${(v + 1 / 6).toFixed(2)}` });
+  }
+  return out;
+}
+function histChart(host, data, { w = 480, h = 240, name, unit, describe, thirds }) {
+  const m = { t: 20, r: 12, b: 24, l: 42 }, iw = w - m.l - m.r, ih = h - m.t - m.b;
+  const bins = thirds ? thirdsBins(data) : data.map(([v, c]) => ({ v, c }));
+  const total = bins.reduce((sum, b) => sum + b.c, 0);
+  const peak = Math.max(...bins.map(b => b.c)) / total * 100;
+  const step = peak > 40 ? 20 : 10, top = Math.ceil(peak / step) * step;
+  const Y = p => m.t + ih * (1 - p * 100 / top);
+  const svg = el("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": describe });
+  for (let q = 0; q <= top; q += step) {
+    el("line", { x1: m.l, x2: w - m.r, y1: Y(q / 100), y2: Y(q / 100), class: q ? "gridline" : "base" }, svg);
+    el("text", { x: m.l - 6, y: Y(q / 100) + 4, "text-anchor": "end" }, svg).textContent = `${q}%`;
+  }
+  const slot = iw / bins.length, bw = Math.min(slot - 2, 72), base = Y(0);
+  bins.forEach((b, i) => {
+    const p = b.c / total, cx = m.l + slot * (i + .5), x = cx - bw / 2, y = Y(p);
+    const hit = el("rect", { class: "barhit", x: m.l + slot * i, y: m.t, width: slot, height: ih }, svg);
+    tip(hit, `${name} ${b.range || +b.v.toFixed(2)}: ${pct(p)} of ${unit} (${fmt(b.c)})`);
+    const r = Math.min(4, bw / 2, base - y);
+    if (b.c) el("path", { class: "bar", d: `M${x},${base}V${y + r}Q${x},${y} ${x + r},${y}H${x + bw - r}Q${x + bw},${y} ${x + bw},${y + r}V${base}Z` }, svg);
+    el("text", { class: "lab", x: cx, y: y - 6, "text-anchor": "middle" }, svg).textContent = pct(p);
+    el("text", { x: cx, y: h - 6, "text-anchor": "middle" }, svg).textContent = +b.v.toFixed(2);
+  });
+  host.replaceChildren(svg);
 }
 function trendChart(host, snaps) {
   const w = 960, h = 220, m = { t: 12, r: 16, b: 24, l: 44 }, iw = w - m.l - m.r, ih = h - m.t - m.b;
@@ -239,27 +300,50 @@ function renderSummary(site, s) {
     d.append(b, sp); return d;
   }));
 
-  $("meanNote").textContent = `Share of ${fmt(s.papers_with_ratings)} papers with a mean rating at or below each value.`;
-  const meanPts = cdfChart($("meanChart"), s.mean_distribution, { name: "Mean", unit: "papers", xStep: .5, describe: "Cumulative distribution of mean rating per paper" });
-
   const hist = f => s.histograms[f] || [];
-  $("ratingNote").textContent = `Share of ${fmt(s.reviews)} ratings at or below each value.`;
-  const pointsByField = { rating: cdfChart($("ratingChart"), hist("rating"), { name: "Rating", unit: "ratings", xStep: 1, describe: "Cumulative distribution of individual ratings" }) };
-
   const others = site.fields.filter(f => f !== "rating");
+  const hosts = {};
   $("otherCharts").replaceChildren(...others.map(f => {
     const box = document.createElement("div"); box.className = "chart";
     const h = document.createElement("h3"); h.textContent = cap(f);
-    const host = document.createElement("div");
-    box.append(h, host);
-    pointsByField[f] = cdfChart(host, hist(f), { w: 300, h: 190, name: cap(f), unit: "reviews", xStep: 1, describe: `Cumulative distribution of ${f} scores` });
+    hosts[f] = document.createElement("div");
+    box.append(h, hosts[f]);
     return box;
   }));
+  // The example uses the first value that half of the papers reach, so it stays meaningful
+  // in later snapshots.
+  const example = cumulative(s.mean_distribution).find(p => p.p >= .5);
+  const exampleValue = +example.v.toFixed(2);
 
-  const tableRows = (pts, digits) => pts.map(p => [p.v.toFixed(digits), fmt(p.n), pct(p.p)]);
+  function drawCharts(mode) {
+    const cdf = mode === "cdf", draw = cdf ? cdfChart : histChart, kind = cdf ? "Cumulative distribution" : "Histogram";
+    $("viewCdf").setAttribute("aria-pressed", cdf);
+    $("viewHist").setAttribute("aria-pressed", !cdf);
+    $("explain").textContent = cdf
+      ? `CDF stands for cumulative distribution function. A CDF curve shows the share of scores at or below each value. Find a score on the horizontal axis, and the height of the curve gives that share. For example, ${pct(example.p)} of papers have a mean rating of ${exampleValue} or lower, so the other ${pct(1 - example.p)} are above ${exampleValue}.`
+      : "A histogram shows how scores are spread out. The height of each bar is the share of scores at that value, and the bars in each chart add up to 100%.";
+    $("meanNote").textContent = cdf
+      ? `Share of ${fmt(s.papers_with_ratings)} papers with a mean rating at or below each value.`
+      : `Share of ${fmt(s.papers_with_ratings)} papers in each range. Each bar covers 1/3 of a point, centered on its label.`;
+    $("ratingNote").textContent = cdf
+      ? `Share of ${fmt(s.reviews)} ratings at or below each value.`
+      : `Share of ${fmt(s.reviews)} ratings at each value.`;
+    draw($("meanChart"), s.mean_distribution, { name: "Mean", unit: "papers", xStep: .5, thirds: true, describe: `${kind} of mean rating per paper` });
+    draw($("ratingChart"), hist("rating"), { name: "Rating", unit: "ratings", xStep: 1, describe: `${kind} of individual ratings` });
+    others.forEach(f => draw(hosts[f], hist(f), { w: 300, h: 190, name: cap(f), unit: "reviews", xStep: 1, describe: `${kind} of ${f} scores` }));
+    $("tip").style.display = "none";
+  }
+  $("viewCdf").onclick = () => drawCharts("cdf");
+  $("viewHist").onclick = () => drawCharts("hist");
+  drawCharts("cdf");
+
+  const tableRows = (data, digits) => {
+    const pts = cumulative(data), total = pts[pts.length - 1].n;
+    return pts.map(p => [p.v.toFixed(digits), fmt(p.c), pct(p.c / total), pct(p.p)]);
+  };
   $("dataTables").replaceChildren(
-    dataTable("Mean rating per paper", ["At or below", "Papers", "Share"], tableRows(meanPts, 2)),
-    ...site.fields.map(f => dataTable(cap(f), ["At or below", "Reviews", "Share"], tableRows(pointsByField[f], 0)))
+    dataTable("Mean rating per paper", ["Value", "Papers", "Share", "At or below"], tableRows(s.mean_distribution, 2)),
+    ...site.fields.map(f => dataTable(cap(f), ["Value", "Reviews", "Share", "At or below"], tableRows(hist(f), 0)))
   );
 
   if (site.snapshots.length > 1) {

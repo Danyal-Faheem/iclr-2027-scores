@@ -31,6 +31,7 @@ If you saved the API pages by hand instead, put them in `notes/` (git-ignored) a
 
 - Withdrawn and desk-rejected submissions are left out of the charts and list. Their counts appear in the footer.
 - Only official reviews count. Ratings in other replies are ignored.
+- The score charts switch between CDF (cumulative distribution function) curves and histograms. The histogram of paper means uses bins 1/3 of a point wide, centered on the values a paper with three reviews can have.
 - Rank is by mean rating, and tied papers share a rank.
 - The Change column compares each paper's mean rating with the first snapshot.
 
