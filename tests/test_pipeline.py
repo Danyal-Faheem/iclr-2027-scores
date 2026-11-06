@@ -164,7 +164,7 @@ class Pipeline(unittest.TestCase):
         self.assertEqual(latest["desk_rejected"], 1)
         self.assertEqual(latest["reviews"], 23 * 3)
         self.assertEqual(sum(c for _, c in latest["histograms"]["rating"]), 69)
-        self.assertEqual(sum(c for _, c in latest["mean_histogram"]["bins"]), 23)
+        self.assertEqual(sum(c for _, c in latest["mean_distribution"]), 23)
 
     def test_second_snapshot_tracks_change(self):
         run_download(self.out, FakeClient(self.raws))

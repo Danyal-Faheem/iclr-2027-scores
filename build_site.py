@@ -23,7 +23,6 @@ from common import iter_notes, reviews_of, value
 
 FIELDS = ["rating", "confidence", "soundness", "presentation", "informativeness"]
 TOP_SHARES = [0.05, 0.10, 0.25, 0.50]
-MEAN_BIN = 0.25
 EXCLUDED_STATUSES = {"withdrawn", "desk_rejected"}
 
 
@@ -83,7 +82,7 @@ def summarize(snapshot_id, taken_at, papers, statuses):
     means = sorted((mean(p["scores"]["rating"]) for p in papers if p["scores"]["rating"]),
                    reverse=True)
     all_ratings = [s for p in papers for s in p["scores"]["rating"]]
-    bins = Counter(int(m // MEAN_BIN) for m in means)
+    mean_counts = Counter(means)
     cutoffs = {f"{share:.2f}": means[max(0, math.ceil(share * len(means)) - 1)]
                for share in TOP_SHARES} if means else {}
     return {
@@ -101,8 +100,7 @@ def summarize(snapshot_id, taken_at, papers, statuses):
         "top_share_cutoffs": cutoffs,
         "histograms": {f: [[k, hists[f][k]] for k in sorted(hists[f])]
                        for f in FIELDS if hists[f]},
-        "mean_histogram": {"bin_width": MEAN_BIN,
-                           "bins": [[round(b * MEAN_BIN, 2), bins[b]] for b in sorted(bins)]},
+        "mean_distribution": [[m, mean_counts[m]] for m in sorted(mean_counts)],
         "ratings_by_paper": {str(p["number"]): sorted(p["scores"]["rating"], reverse=True)
                              for p in papers},
     }

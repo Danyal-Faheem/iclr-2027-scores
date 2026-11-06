@@ -44,9 +44,9 @@ a { color: var(--link); }
 .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
 svg { display: block; width: 100%; height: auto; overflow: visible; }
 svg text { fill: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; }
-.bar { fill: var(--series); }
 .hit { fill: transparent; }
-.hit:hover + .bar, .bar.on { opacity: .75; }
+svg text.lab { fill: var(--text-2); font-weight: 600; }
+.guide { stroke: var(--text-3); stroke-width: 1; stroke-dasharray: 3 3; }
 .gridline { stroke: var(--grid); stroke-width: 1; }
 .base { stroke: var(--line); stroke-width: 1; }
 .trend { fill: none; stroke: var(--series); stroke-width: 2; }
@@ -84,7 +84,7 @@ details td, details th { padding: 3px 8px; }
   <p class="sub" id="sub">Loading…</p>
   <div class="tiles" id="tiles"></div>
 
-  <h2>Score distributions</h2>
+  <h2>Score distributions (CDF)</h2>
   <div class="grid2">
     <div class="chart"><h3>Mean rating per paper</h3><p class="note" id="meanNote"></p><div id="meanChart"></div></div>
     <div class="chart"><h3>Individual ratings</h3><p class="note" id="ratingNote"></p><div id="ratingChart"></div></div>
@@ -118,6 +118,7 @@ const PAGE = 50, $ = id => document.getElementById(id), SVG = "http://www.w3.org
 const fmt = n => n == null ? "–" : n.toLocaleString("en-US");
 const fix = (n, d = 2) => n == null ? "–" : n.toFixed(d);
 const cap = s => s[0].toUpperCase() + s.slice(1);
+const pct = p => (p * 100).toFixed(1) + "%";
 const when = iso => new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }) + " UTC";
 
 function el(tag, attrs = {}, parent) {
@@ -140,25 +141,53 @@ function niceMax(v) {
   for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p;
   return v;
 }
-function barChart(host, data, { w = 480, h = 220, label, describe }) {
-  const m = { t: 8, r: 6, b: 22, l: 44 }, iw = w - m.l - m.r, ih = h - m.t - m.b;
+// Empirical CDF drawn as a step line. data is [[value, count], ...] sorted by value.
+function cdfChart(host, data, { w = 480, h = 240, name, unit, describe, xStep }) {
+  const m = { t: 20, r: 12, b: 24, l: 42 }, iw = w - m.l - m.r, ih = h - m.t - m.b;
+  const total = data.reduce((sum, d) => sum + d[1], 0);
+  let running = 0;
+  const pts = data.map(([v, c]) => { running += c; return { v, n: running, p: running / total }; });
+  const labelled = pts.length <= 6;
+  const lo = pts[0].v, hi = pts[pts.length - 1].v, pad = Math.max((hi - lo) * (labelled ? .14 : .06), .1);
+  const X = v => m.l + iw * (v - (lo - pad)) / (hi - lo + 2 * pad), Y = p => m.t + ih * (1 - p);
+  const invX = x => lo - pad + (x - m.l) / iw * (hi - lo + 2 * pad);
   const svg = el("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": describe });
-  const top = niceMax(Math.max(...data.map(d => d[1])));
-  for (let i = 0; i <= 4; i++) {
-    const y = m.t + ih - ih * i / 4;
-    if (i) el("line", { x1: m.l, x2: w - m.r, y1: y, y2: y, class: "gridline" }, svg);
-    el("text", { x: m.l - 6, y: y + 4, "text-anchor": "end" }, svg).textContent = fmt(Math.round(top * i / 4));
+  for (const q of [0, .25, .5, .75, 1]) {
+    el("line", { x1: m.l, x2: w - m.r, y1: Y(q), y2: Y(q), class: q ? "gridline" : "base" }, svg);
+    el("text", { x: m.l - 6, y: Y(q) + 4, "text-anchor": "end" }, svg).textContent = `${q * 100}%`;
   }
-  const step = iw / data.length, bw = Math.max(step - 2, 1), every = Math.ceil(data.length / 10);
-  data.forEach((d, i) => {
-    const bh = ih * d[1] / top, x = m.l + i * step + 1, y = m.t + ih - bh, r = Math.min(4, bw / 2, bh);
-    const hit = el("rect", { x: m.l + i * step, y: m.t, width: step, height: ih, class: "hit" }, svg);
-    el("path", { class: "bar", d: `M${x},${y + bh}V${y + r}Q${x},${y} ${x + r},${y}H${x + bw - r}Q${x + bw},${y} ${x + bw},${y + r}V${y + bh}Z` }, svg);
-    tip(hit, `${label(d[0])}: ${fmt(d[1])}`);
-    if (i % every === 0) el("text", { x: x + bw / 2, y: h - 6, "text-anchor": "middle" }, svg).textContent = d[2] ?? d[0];
+  for (let v = Math.ceil(lo / xStep) * xStep; v <= hi + 1e-9; v += xStep)
+    el("text", { x: X(v), y: h - 6, "text-anchor": "middle" }, svg).textContent = +v.toFixed(2);
+  let d = `M${m.l},${Y(0)}`, prev = 0;
+  for (const pt of pts) { d += `H${X(pt.v)}V${Y(pt.p)}`; prev = pt.p; }
+  el("path", { class: "trend", d: d + `H${w - m.r}` }, svg);
+  if (labelled) pts.forEach(pt => {
+    el("circle", { class: "dot", cx: X(pt.v), cy: Y(pt.p), r: 4 }, svg);
+    el("text", { class: "lab", x: X(pt.v), y: Y(pt.p) - 8, "text-anchor": "middle" }, svg).textContent = pct(pt.p);
   });
-  el("line", { x1: m.l, x2: w - m.r, y1: m.t + ih, y2: m.t + ih, class: "base" }, svg);
+  const guide = el("line", { class: "guide", y1: m.t, y2: m.t + ih, visibility: "hidden" }, svg);
+  const mark = el("circle", { class: "dot", r: 5, visibility: "hidden" }, svg);
+  const hit = el("rect", { class: "hit", x: m.l, y: m.t, width: iw, height: ih }, svg);
+  const tipEl = $("tip");
+  hit.addEventListener("pointermove", e => {
+    const box = svg.getBoundingClientRect(), x = (e.clientX - box.left) * w / box.width, at = invX(x);
+    let cur = null;
+    for (const pt of pts) { if (pt.v <= at + 1e-9) cur = pt; else break; }
+    const px = cur ? X(cur.v) : m.l, py = Y(cur ? cur.p : 0);
+    guide.setAttribute("x1", px); guide.setAttribute("x2", px); guide.setAttribute("visibility", "visible");
+    mark.setAttribute("cx", px); mark.setAttribute("cy", py); mark.setAttribute("visibility", "visible");
+    tipEl.textContent = cur
+      ? `${name} ≤ ${+cur.v.toFixed(2)}: ${pct(cur.p)} of ${unit} (${fmt(cur.n)}); above: ${pct(1 - cur.p)}`
+      : `${name} below ${+lo.toFixed(2)}: 0% of ${unit}`;
+    tipEl.style.display = "block";
+    tipEl.style.left = Math.max(8, Math.min(e.clientX + 12, innerWidth - tipEl.offsetWidth - 8)) + "px";
+    tipEl.style.top = (e.clientY - 38) + "px";
+  });
+  hit.addEventListener("pointerleave", () => {
+    tipEl.style.display = "none"; guide.setAttribute("visibility", "hidden"); mark.setAttribute("visibility", "hidden");
+  });
   host.replaceChildren(svg);
+  return pts;
 }
 function trendChart(host, snaps) {
   const w = 960, h = 220, m = { t: 12, r: 16, b: 24, l: 44 }, iw = w - m.l - m.r, ih = h - m.t - m.b;
@@ -210,17 +239,12 @@ function renderSummary(site, s) {
     d.append(b, sp); return d;
   }));
 
-  const width = s.mean_histogram.bin_width, bins = new Map(s.mean_histogram.bins);
-  const los = s.mean_histogram.bins.map(b => b[0]), meanData = [];
-  for (let x = Math.min(...los); x <= Math.max(...los) + 1e-9; x += width) {
-    const k = Math.round(x * 100) / 100; meanData.push([k, bins.get(k) || 0]);
-  }
-  $("meanNote").textContent = `${fmt(s.papers_with_ratings)} papers, in bins of ${width}.`;
-  barChart($("meanChart"), meanData, { label: lo => `${lo.toFixed(2)} to below ${(lo + width).toFixed(2)}`, describe: "Histogram of mean rating per paper" });
+  $("meanNote").textContent = `Share of ${fmt(s.papers_with_ratings)} papers with a mean rating at or below each value.`;
+  const meanPts = cdfChart($("meanChart"), s.mean_distribution, { name: "Mean", unit: "papers", xStep: .5, describe: "Cumulative distribution of mean rating per paper" });
 
   const hist = f => s.histograms[f] || [];
-  $("ratingNote").textContent = `${fmt(s.reviews)} ratings from all reviews.`;
-  barChart($("ratingChart"), hist("rating"), { label: v => `Rating ${v}`, describe: "Histogram of individual ratings" });
+  $("ratingNote").textContent = `Share of ${fmt(s.reviews)} ratings at or below each value.`;
+  const pointsByField = { rating: cdfChart($("ratingChart"), hist("rating"), { name: "Rating", unit: "ratings", xStep: 1, describe: "Cumulative distribution of individual ratings" }) };
 
   const others = site.fields.filter(f => f !== "rating");
   $("otherCharts").replaceChildren(...others.map(f => {
@@ -228,13 +252,14 @@ function renderSummary(site, s) {
     const h = document.createElement("h3"); h.textContent = cap(f);
     const host = document.createElement("div");
     box.append(h, host);
-    barChart(host, hist(f), { w: 300, h: 170, label: v => `${cap(f)} ${v}`, describe: `Histogram of ${f} scores` });
+    pointsByField[f] = cdfChart(host, hist(f), { w: 300, h: 190, name: cap(f), unit: "reviews", xStep: 1, describe: `Cumulative distribution of ${f} scores` });
     return box;
   }));
 
+  const tableRows = (pts, digits) => pts.map(p => [p.v.toFixed(digits), fmt(p.n), pct(p.p)]);
   $("dataTables").replaceChildren(
-    dataTable("Mean rating per paper", ["Bin start", "Papers"], meanData.map(d => [d[0].toFixed(2), fmt(d[1])])),
-    ...site.fields.map(f => dataTable(cap(f), ["Score", "Reviews"], hist(f).map(d => [d[0], fmt(d[1])])))
+    dataTable("Mean rating per paper", ["At or below", "Papers", "Share"], tableRows(meanPts, 2)),
+    ...site.fields.map(f => dataTable(cap(f), ["At or below", "Reviews", "Share"], tableRows(pointsByField[f], 0)))
   );
 
   if (site.snapshots.length > 1) {
