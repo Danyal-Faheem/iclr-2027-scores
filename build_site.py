@@ -52,6 +52,15 @@ def sanitize_text(text):
     return " ".join(str(text or "").split())
 
 
+def extract_keywords(raw):
+    val = value(raw)
+    if isinstance(val, list):
+        return [sanitize_text(k) for k in val if sanitize_text(k)]
+    if isinstance(val, str):
+        return [sanitize_text(k) for k in val.split(",") if sanitize_text(k)]
+    return []
+
+
 def read_snapshot(snapshot_dir):
     """Extract only the allowed fields from a raw snapshot."""
     papers, statuses = [], Counter()
@@ -67,11 +76,13 @@ def read_snapshot(snapshot_dir):
                 if number is not None:
                     scores[field].append(number)
         primary_area = sanitize_text(value(note["content"].get("primary_area"))) or "Uncategorized"
+        keywords = extract_keywords(note["content"].get("keywords"))
         papers.append({
             "number": note["number"],
             "forum": note["forum"],
             "title": sanitize_text(value(note["content"].get("title"))),
             "primary_area": primary_area,
+            "keywords": keywords,
             "scores": scores,
         })
     papers.sort(key=lambda p: p["number"])
@@ -121,6 +132,7 @@ def rows_for_page(papers, first_ratings):
             p["forum"],
             p["title"],
             p["primary_area"],
+            p["keywords"],
             ratings,
             mean(p["scores"]["confidence"]),
             mean(first_ratings.get(str(p["number"])) or []),
@@ -134,7 +146,7 @@ def check_output(site, papers_doc):
     allowed_papers = {"columns", "rows"}
     if set(site) != allowed_site or set(papers_doc) != allowed_papers:
         raise ValueError(f"unexpected keys in page data: site={set(site)}, papers={set(papers_doc)}")
-    expected_cols = ["number", "forum", "title", "primary_area", "ratings", "confidence_mean", "first_mean"]
+    expected_cols = ["number", "forum", "title", "primary_area", "keywords", "ratings", "confidence_mean", "first_mean"]
     if papers_doc["columns"] != expected_cols:
         raise ValueError(f"unexpected columns: {papers_doc['columns']}")
     if not isinstance(site.get("primary_areas"), list):
@@ -144,11 +156,13 @@ def check_output(site, papers_doc):
             raise ValueError(f"invalid primary area in site list: {area}")
 
     for row in papers_doc["rows"]:
-        number, forum, title, primary_area, ratings, confidence, first_mean = row
+        number, forum, title, primary_area, keywords, ratings, confidence, first_mean = row
         ok = (isinstance(number, int)
               and re.fullmatch(r"[\w-]+", forum)
               and isinstance(title, str)
               and isinstance(primary_area, str)
+              and isinstance(keywords, list)
+              and all(isinstance(k, str) for k in keywords)
               and all(isinstance(r, (int, float)) for r in ratings)
               and all(v is None or isinstance(v, (int, float))
                       for v in (confidence, first_mean)))
@@ -209,7 +223,7 @@ def main(argv=None):
     primary_areas = sorted(list({p["primary_area"] for p in latest_papers}))
 
     papers_doc = {
-        "columns": ["number", "forum", "title", "primary_area", "ratings", "confidence_mean", "first_mean"],
+        "columns": ["number", "forum", "title", "primary_area", "keywords", "ratings", "confidence_mean", "first_mean"],
         "rows": rows_for_page(latest_papers, first_ratings),
     }
     site = {

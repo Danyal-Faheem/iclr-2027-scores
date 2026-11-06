@@ -53,7 +53,7 @@ def submission(number, rng, venue_suffix="Submission", n_reviews=3, primary_area
             "title": {"value": f"Paper  title {number}"},
             "abstract": {"value": ABSTRACT},
             "authors": {"value": [AUTHOR]},
-            "keywords": {"value": [ABSTRACT]},
+            "keywords": {"value": ["reasoning models", "deep learning"]},
             "primary_area": {"value": primary_area},
             "venueid": {"value": f"{VENUE}/{venue_suffix}"},
         },
@@ -150,19 +150,19 @@ class Pipeline(unittest.TestCase):
         run_download(self.out, FakeClient(self.raws))
         site, papers = self.build()
         self.assertEqual(papers["columns"],
-                         ["number", "forum", "title", "primary_area", "ratings", "confidence_mean", "first_mean"])
+                         ["number", "forum", "title", "primary_area", "keywords", "ratings", "confidence_mean", "first_mean"])
         rows = {r[0]: r for r in papers["rows"]}
         self.assertNotIn(24, rows)  # withdrawn
         self.assertNotIn(25, rows)  # desk rejected
-        self.assertEqual(rows[26][4], [])  # active, not reviewed yet
+        self.assertEqual(rows[26][5], [])  # active, not reviewed yet
         self.assertEqual(rows[1][1], "f1")
         self.assertEqual(rows[1][2], "Paper title 1")
         self.assertEqual(rows[1][3], SAMPLE_AREA)
-        
+        self.assertEqual(rows[1][4], ["reasoning models", "deep learning"])
         expected = sorted((r["content"]["rating"]["value"]
                            for r in self.raws[0]["details"]["directReplies"]
                            if r["id"].startswith("r")), reverse=True)
-        self.assertEqual(rows[1][4], expected)  # the comment's rating is not counted
+        self.assertEqual(rows[1][5], expected)  # the comment's rating is not counted
         self.assertIn(SAMPLE_AREA, site["primary_areas"])
         latest = site["snapshots"][-1]
         self.assertEqual(latest["active"], 24)
@@ -176,7 +176,7 @@ class Pipeline(unittest.TestCase):
         run_download(self.out, FakeClient(self.raws))
         site, papers = self.build()
         first_row = [r for r in papers["rows"] if r[0] == 1][0]
-        first_mean = sum(first_row[4]) / len(first_row[4])
+        first_mean = sum(first_row[5]) / len(first_row[5])
         for r in self.raws[0]["details"]["directReplies"]:
             if r["id"].startswith("r"):
                 r["content"]["rating"]["value"] = 10
@@ -186,8 +186,8 @@ class Pipeline(unittest.TestCase):
         site, papers = self.build()
         self.assertEqual(len(site["snapshots"]), 2)
         row = [r for r in papers["rows"] if r[0] == 1][0]
-        self.assertEqual(row[4], [10, 10, 10])
-        self.assertAlmostEqual(row[6], first_mean, places=3)
+        self.assertEqual(row[5], [10, 10, 10])
+        self.assertAlmostEqual(row[7], first_mean, places=3)
 
     def save_pages(self, pages):
         folder = self.root / "notes"
@@ -214,9 +214,13 @@ class Pipeline(unittest.TestCase):
         self.assertIsNone(build_site.to_number("n/a"))
         self.assertIsNone(build_site.to_number(None))
 
-    def test_whitespace_area_format(self):
+    def test_whitespace_area_and_keyword_formats(self):
         self.assertEqual(build_site.sanitize_text("   "), "")
         self.assertEqual(build_site.sanitize_text(None), "")
+        self.assertEqual(build_site.extract_keywords("deep learning, reinforcement learning"),
+                         ["deep learning", "reinforcement learning"])
+        self.assertEqual(build_site.extract_keywords(["nlp", "vision"]), ["nlp", "vision"])
+        self.assertEqual(build_site.extract_keywords(""), [])
 
 
 if __name__ == "__main__":

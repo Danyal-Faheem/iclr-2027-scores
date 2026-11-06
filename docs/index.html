@@ -54,6 +54,54 @@ a:hover { text-decoration: underline; }
 }
 .filter-info { font-size: 13px; color: var(--text-2); }
 
+.kw-container { position: relative; width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.kw-label-row { display: flex; justify-content: space-between; align-items: center; }
+.kw-label-row label { font-size: 13px; font-weight: 600; color: var(--text-2); }
+.kw-selector {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; min-height: 40px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; cursor: text;
+}
+.kw-selector:focus-within { border-color: var(--series); }
+.kw-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.kw-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 12px; font-weight: 500;
+  background: var(--card); color: var(--series); border: 1px solid var(--series); border-radius: 14px;
+}
+.kw-chip button {
+  border: 0; background: none; padding: 0 2px; color: inherit; font-size: 14px; line-height: 1; cursor: pointer;
+}
+.kw-selector input {
+  flex: 1 1 180px; min-width: 140px; border: 0; outline: 0; background: transparent; font: inherit; font-size: 13px;
+  color: var(--text); padding: 4px 0;
+}
+.kw-clear-btn {
+  border: 0; background: none; font-size: 16px; color: var(--text-3); cursor: pointer; padding: 0 4px;
+}
+.kw-clear-btn:hover { color: var(--text); }
+.kw-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 25; max-height: 280px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: flex; flex-direction: column; overflow: hidden;
+}
+.kw-dropdown-header {
+  display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; font-size: 11px;
+  color: var(--text-3); background: var(--row); border-bottom: 1px solid var(--grid);
+}
+.kw-list { overflow-y: auto; max-height: 240px; padding: 4px 0; }
+.kw-item {
+  display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; font-size: 13px;
+  cursor: pointer; user-select: none; gap: 8px;
+}
+.kw-item:hover { background: var(--row); }
+.kw-item.selected { font-weight: 600; color: var(--series); }
+.kw-count { font-size: 11px; color: var(--text-3); }
+.kw-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.kw-tag {
+  font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--surface); color: var(--text-3);
+  border: 1px solid var(--grid); cursor: pointer;
+}
+.kw-tag:hover { border-color: var(--series); color: var(--series); }
+.kw-tag.selected { background: var(--series); color: #fff; border-color: var(--series); font-weight: 600; }
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
 .tile, .chart { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
@@ -109,15 +157,34 @@ details td, details th { padding: 4px 8px; }
   <h1>ICLR 2027 Scores Explorer</h1>
   <p class="sub" id="sub">Loading conference data…</p>
 
-    <div class="filter-bar">
-    <div class="filter-group">
-      <label for="areaFilter">Primary Area:</label>
-      <select id="areaFilter" aria-label="Select Primary Area">
-        <option value="">All Areas (Loading…)</option>
-      </select>
+  <div class="filter-bar">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label for="areaFilter">Primary Area:</label>
+        <select id="areaFilter" aria-label="Select Primary Area">
+          <option value="">All Areas (Loading…)</option>
+        </select>
+      </div>
+      <div class="filter-info" id="filterInfo"></div>
     </div>
-    <div class="filter-info" id="filterInfo"></div>
-  </div>
+    <div class="kw-container">
+      <div class="kw-label-row">
+        <label for="kwInput">Keywords Filter:</label>
+        <span id="kwSelectedCount" style="font-size: 12px; color: var(--text-3);"></span>
+      </div>
+      <div class="kw-selector" id="kwSelector">
+        <div class="kw-chips" id="kwChips"></div>
+        <input type="text" id="kwInput" placeholder="Filter by keywords (search and select)..." autocomplete="off" aria-label="Search keywords to filter">
+        <button type="button" class="kw-clear-btn" id="kwClearBtn" title="Clear keyword filters" style="display: none;">&times;</button>
+      </div>
+      <div class="kw-dropdown" id="kwDropdown" style="display: none;">
+        <div class="kw-dropdown-header">
+          <span id="kwDropdownCount">0 keywords</span>
+          <span>Click to toggle filter</span>
+        </div>
+        <div class="kw-list" id="kwList"></div>
+      </div>
+    </div>
   </div>
 
   <div class="tiles" id="tiles"></div>
@@ -209,6 +276,9 @@ let sortBy = "rank";
 let dir = 1;
 let page = 0;
 let filteredPapers = [];
+const selectedKeywords = new Set();
+const keywordCounts = new Map();
+const keywordDisplayNames = new Map();
 
 function el(tag, attrs = {}, parent) {
   const node = document.createElementNS(SVG, tag);
@@ -490,6 +560,138 @@ function renderAreaSummaryTable(papers, areas) {
   tbody.replaceChildren(frag);
 }
 
+function renderChips() {
+  const chipsEl = $("kwChips");
+  if (!chipsEl) return;
+  chipsEl.replaceChildren();
+
+  for (const norm of selectedKeywords) {
+    const display = keywordDisplayNames.get(norm) || norm;
+    const chip = document.createElement("span");
+    chip.className = "kw-chip";
+    chip.textContent = display;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.setAttribute("aria-label", `Remove ${display}`);
+    btn.innerHTML = "&times;";
+    btn.onclick = e => {
+      e.stopPropagation();
+      toggleKeyword(norm);
+    };
+    chip.appendChild(btn);
+    chipsEl.appendChild(chip);
+  }
+
+  const clearBtn = $("kwClearBtn");
+  if (clearBtn) {
+    clearBtn.style.display = selectedKeywords.size > 0 ? "inline-block" : "none";
+  }
+
+  const countSpan = $("kwSelectedCount");
+  if (countSpan) {
+    countSpan.textContent = selectedKeywords.size > 0 ? `${selectedKeywords.size} selected` : "";
+  }
+}
+
+function renderKeywordDropdown(filterText = "") {
+  const q = (filterText || "").trim().toLowerCase();
+  const listEl = $("kwList");
+  if (!listEl) return;
+
+  const matches = [];
+  for (const [kwLower, count] of keywordCounts.entries()) {
+    if (!q || kwLower.includes(q)) {
+      matches.push({
+        lower: kwLower,
+        display: keywordDisplayNames.get(kwLower) || kwLower,
+        count,
+        selected: selectedKeywords.has(kwLower)
+      });
+    }
+  }
+
+  const countEl = $("kwDropdownCount");
+  if (countEl) {
+    countEl.textContent = `${fmt(matches.length)} keyword${matches.length === 1 ? "" : "s"}`;
+  }
+
+  matches.sort((a, b) => {
+    if (a.selected !== b.selected) return a.selected ? -1 : 1;
+    if (b.count !== a.count) return b.count - a.count;
+    return a.display.localeCompare(b.display);
+  });
+
+  const top100 = matches.slice(0, 100);
+  const frag = document.createDocumentFragment();
+
+  top100.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "kw-item" + (item.selected ? " selected" : "");
+
+    const textSpan = document.createElement("span");
+    textSpan.textContent = (item.selected ? "✓ " : "") + item.display;
+
+    const countSpan = document.createElement("span");
+    countSpan.className = "kw-count";
+    countSpan.textContent = fmt(item.count);
+
+    div.appendChild(textSpan);
+    div.appendChild(countSpan);
+
+    div.addEventListener("mousedown", e => {
+      e.preventDefault();
+      toggleKeyword(item.lower);
+    });
+
+    frag.appendChild(div);
+  });
+
+  if (top100.length === 0) {
+    const emptyDiv = document.createElement("div");
+    emptyDiv.className = "kw-item";
+    emptyDiv.style.color = "var(--text-3)";
+    emptyDiv.style.cursor = "default";
+    emptyDiv.textContent = "No keywords match";
+    frag.appendChild(emptyDiv);
+  }
+
+  listEl.replaceChildren(frag);
+}
+
+function toggleKeyword(kw) {
+  if (!kw) return;
+  const norm = kw.toLowerCase().trim();
+  if (selectedKeywords.has(norm)) {
+    selectedKeywords.delete(norm);
+  } else {
+    selectedKeywords.add(norm);
+  }
+  renderChips();
+  updateSummaryView();
+  page = 0;
+  renderPapers();
+
+  const dropdown = $("kwDropdown");
+  if (dropdown && dropdown.style.display !== "none") {
+    renderKeywordDropdown($("kwInput").value);
+  }
+}
+
+function clearKeywords() {
+  if (selectedKeywords.size === 0) return;
+  selectedKeywords.clear();
+  renderChips();
+  updateSummaryView();
+  page = 0;
+  renderPapers();
+
+  const dropdown = $("kwDropdown");
+  if (dropdown && dropdown.style.display !== "none") {
+    renderKeywordDropdown($("kwInput").value);
+  }
+}
+
 function renderPapers() {
   const hasChange = (globalSite?.snapshots?.length ?? 0) > 1;
 
@@ -589,6 +791,26 @@ function renderTableBody() {
     a.textContent = p.title;
     titleTd.appendChild(a);
 
+    if (p.keywords && p.keywords.length) {
+      const tagsDiv = document.createElement("div");
+      tagsDiv.className = "kw-tags";
+      p.keywords.slice(0, 10).forEach(kw => {
+        const tag = document.createElement("span");
+        tag.className = "kw-tag";
+        if (selectedKeywords.has(kw.toLowerCase())) tag.classList.add("selected");
+        tag.textContent = kw;
+        tag.onclick = e => { e.stopPropagation(); toggleKeyword(kw); };
+        tagsDiv.appendChild(tag);
+      });
+      if (p.keywords.length > 10) {
+        const more = document.createElement("span");
+        more.className = "kw-count";
+        more.textContent = `+${p.keywords.length - 10} more`;
+        tagsDiv.appendChild(more);
+      }
+      titleTd.appendChild(tagsDiv);
+    }
+
     const areaTd = cell("");
     const areaBadge = document.createElement("a");
     areaBadge.className = "badge";
@@ -649,15 +871,39 @@ const load = name => fetch(`data/${name}.json`, { cache: "no-cache" }).then(r =>
     globalSite = site;
 
     // Parse papers
-    allPapers = doc.rows.map(([number, forum, title, area, ratings, conf, first]) => {
+    allPapers = doc.rows.map(([number, forum, title, area, keywords, ratings, conf, first]) => {
+      const kwList = Array.isArray(keywords) ? keywords : [];
       const mean = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
       return {
-        number, forum, title, area: area || "Uncategorized", ratings, conf, mean,
+        number, forum, title, area: area || "Uncategorized",
+        keywords: kwList,
+        lowerKeywords: new Set(kwList.map(k => k.toLowerCase())),
+        ratings, conf, mean,
         reviews: ratings.length,
         change: mean != null && first != null ? mean - first : null,
-        key: (title + " " + (area || "")).toLowerCase()
+        key: (title + " " + (area || "") + " " + kwList.join(" ")).toLowerCase()
       };
     });
+
+    // Build keyword frequency index and display names
+    keywordCounts.clear();
+    keywordDisplayNames.clear();
+    for (const p of allPapers) {
+      const seen = new Set();
+      for (const kw of p.keywords) {
+        if (!kw || typeof kw !== "string") continue;
+        const trimmed = kw.trim();
+        if (!trimmed) continue;
+        const lower = trimmed.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          keywordCounts.set(lower, (keywordCounts.get(lower) || 0) + 1);
+        }
+        if (!keywordDisplayNames.has(lower) || (trimmed !== lower && keywordDisplayNames.get(lower) === lower)) {
+          keywordDisplayNames.set(lower, trimmed);
+        }
+      }
+    }
 
     // Compute global ranks once
     const globalRated = allPapers.filter(p => p.mean != null).sort((a, b) => b.mean - a.mean);
@@ -714,7 +960,62 @@ const load = name => fetch(`data/${name}.json`, { cache: "no-cache" }).then(r =>
 
     $("foot").textContent = `Shows paper titles, primary areas, numeric scores and OpenReview links. Withdrawn (${fmt(lastSnap.withdrawn)}) and desk-rejected (${fmt(lastSnap.desk_rejected)}) submissions are excluded. Data from OpenReview API.`;
 
-    } catch (err) {
+    // Keyword UI events
+    const kwContainer = document.querySelector(".kw-container");
+    const kwSelector = $("kwSelector");
+    const kwInput = $("kwInput");
+    const kwDropdown = $("kwDropdown");
+    const kwClearBtn = $("kwClearBtn");
+
+    if (kwSelector && kwInput) {
+      kwSelector.addEventListener("click", e => {
+        if (e.target !== kwClearBtn && !e.target.closest(".kw-chip button")) {
+          kwInput.focus();
+        }
+      });
+    }
+
+    let kwInputTimer = null;
+    if (kwInput && kwDropdown) {
+      kwInput.addEventListener("focus", () => {
+        kwDropdown.style.display = "flex";
+        renderKeywordDropdown(kwInput.value);
+      });
+
+      kwInput.addEventListener("input", () => {
+        kwDropdown.style.display = "flex";
+        clearTimeout(kwInputTimer);
+        kwInputTimer = setTimeout(() => {
+          renderKeywordDropdown(kwInput.value);
+        }, 120);
+      });
+
+      kwInput.addEventListener("keydown", e => {
+        if (e.key === "Escape") {
+          kwDropdown.style.display = "none";
+        } else if (e.key === "Backspace" && kwInput.value === "" && selectedKeywords.size > 0) {
+          const arr = Array.from(selectedKeywords);
+          const last = arr[arr.length - 1];
+          toggleKeyword(last);
+        }
+      });
+    }
+
+    if (kwClearBtn) {
+      kwClearBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        clearKeywords();
+        kwInput.focus();
+      });
+    }
+
+    document.addEventListener("click", e => {
+      if (kwContainer && !kwContainer.contains(e.target)) {
+        if (kwDropdown) kwDropdown.style.display = "none";
+      }
+    });
+
+  } catch (err) {
     console.error("Initialization error:", err);
     $("sub").textContent = "Error loading conference data. Please reload.";
   }
