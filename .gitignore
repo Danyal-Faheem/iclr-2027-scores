@@ -1,5 +1,6 @@
 # Raw OpenReview data contains review text and is never committed.
 snapshots/
+notes*.json
 
 .venv/
 venv/
@@ -7,3 +8,4 @@ __pycache__/
 *.pyc
 .DS_Store
 .env
+notes/

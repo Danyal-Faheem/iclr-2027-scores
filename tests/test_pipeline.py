@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import build_site
 import download
+import import_notes
 
 VENUE = "ICLR.cc/2027/Conference"
 CANARY = "CANARYREVIEWTEXT"
@@ -181,6 +182,25 @@ class Pipeline(unittest.TestCase):
         row = [r for r in papers["rows"] if r[0] == 1][0]
         self.assertEqual(row[3], [10, 10, 10])
         self.assertAlmostEqual(row[5], first_mean, places=3)
+
+    def save_pages(self, pages):
+        folder = self.root / "notes"
+        folder.mkdir()
+        for index, raws in enumerate(pages):
+            (folder / f"notes{index}.json").write_text(
+                json.dumps({"notes": raws, "count": len(self.raws)}))
+        return ["--notes", str(folder), "--out", str(self.out)]
+
+    def test_import_complete_pages(self):
+        args = self.save_pages([self.raws[:10], self.raws[10:20], self.raws[20:]])
+        self.assertEqual(import_notes.main(args), 0)
+        self.assertTrue(self.only_manifest()["complete"])
+        self.assertEqual(self.build()[0]["snapshots"][-1]["active"], 24)
+
+    def test_import_refuses_duplicate_page(self):
+        args = self.save_pages([self.raws[:10], self.raws[:10], self.raws[20:]])
+        self.assertEqual(import_notes.main(args), 1)
+        self.assertEqual(list(self.out.glob("*/manifest.json")), [])
 
     def test_text_scores_parse(self):
         self.assertEqual(build_site.to_number("6: marginally above"), 6)

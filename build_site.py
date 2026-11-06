@@ -23,7 +23,7 @@ from common import iter_notes, reviews_of, value
 
 FIELDS = ["rating", "confidence", "soundness", "presentation", "informativeness"]
 TOP_SHARES = [0.05, 0.10, 0.25, 0.50]
-MEAN_BIN = 0.5
+MEAN_BIN = 0.25
 EXCLUDED_STATUSES = {"withdrawn", "desk_rejected"}
 
 

@@ -82,7 +82,7 @@ def fetch_pages(client, snapshot_dir, venue, page_size, pause):
             time.sleep(pause)
 
 
-def write_manifest(snapshot_dir, venue, total):
+def write_manifest(snapshot_dir, venue, total, taken_at=None):
     """Check the saved pages against the API total and record the result."""
     venues, ratings = Counter(), Counter()
     notes = reviews = with_reviews = 0
@@ -96,7 +96,7 @@ def write_manifest(snapshot_dir, venue, total):
             ratings[str(value(review["content"].get("rating")))] += 1
     manifest = {
         "venue": venue,
-        "taken_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "taken_at": (taken_at or datetime.now(timezone.utc)).isoformat(timespec="seconds"),
         "api_total": total,
         "submissions": notes,
         "complete": notes == total and reviews > 0,

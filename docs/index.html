@@ -216,7 +216,7 @@ function renderSummary(site, s) {
     const k = Math.round(x * 100) / 100; meanData.push([k, bins.get(k) || 0]);
   }
   $("meanNote").textContent = `${fmt(s.papers_with_ratings)} papers, in bins of ${width}.`;
-  barChart($("meanChart"), meanData, { label: lo => `${lo.toFixed(1)} to below ${(lo + width).toFixed(1)}`, describe: "Histogram of mean rating per paper" });
+  barChart($("meanChart"), meanData, { label: lo => `${lo.toFixed(2)} to below ${(lo + width).toFixed(2)}`, describe: "Histogram of mean rating per paper" });
 
   const hist = f => s.histograms[f] || [];
   $("ratingNote").textContent = `${fmt(s.reviews)} ratings from all reviews.`;
@@ -233,7 +233,7 @@ function renderSummary(site, s) {
   }));
 
   $("dataTables").replaceChildren(
-    dataTable("Mean rating per paper", ["Bin start", "Papers"], meanData.map(d => [d[0].toFixed(1), fmt(d[1])])),
+    dataTable("Mean rating per paper", ["Bin start", "Papers"], meanData.map(d => [d[0].toFixed(2), fmt(d[1])])),
     ...site.fields.map(f => dataTable(cap(f), ["Score", "Reviews"], hist(f).map(d => [d[0], fmt(d[1])])))
   );
 
@@ -251,8 +251,12 @@ function renderPapers(site, doc) {
     return { number, forum, title, ratings, conf, mean, reviews: ratings.length,
       change: mean != null && first != null ? mean - first : null, key: title.toLowerCase() };
   });
+  // Rank is fixed by mean rating, so a paper keeps its rank under search and re-sorting.
+  // Tied papers share a rank.
+  const rated = papers.filter(p => p.mean != null).sort((a, b) => b.mean - a.mean);
+  rated.forEach((p, i) => { p.rank = i && p.mean === rated[i - 1].mean ? rated[i - 1].rank : i + 1; });
   const cols = [
-    { id: "rank", name: "#", num: true },
+    { id: "rank", name: "Rank", num: true, sort: true },
     { id: "title", name: "Title", sort: true },
     { id: "mean", name: "Mean", num: true, sort: true },
     { id: "ratings", name: "Ratings", num: true },
@@ -261,7 +265,7 @@ function renderPapers(site, doc) {
   ];
   if (hasChange) cols.push({ id: "change", name: "Change", num: true, sort: true });
 
-  let sortBy = "mean", dir = -1, query = "", page = 0, view = [];
+  let sortBy = "rank", dir = 1, terms = [], page = 0, view = [];
   const compare = (a, b) => {
     const x = a[sortBy], y = b[sortBy];
     if (x == null || y == null) return (x == null) - (y == null) || a.number - b.number;
@@ -276,7 +280,7 @@ function renderPapers(site, doc) {
         const b = document.createElement("button");
         b.textContent = c.name + (sortBy === c.id ? (dir < 0 ? " ↓" : " ↑") : "");
         b.onclick = () => {
-          if (sortBy === c.id) dir = -dir; else { sortBy = c.id; dir = c.id === "title" ? 1 : -1; }
+          if (sortBy === c.id) dir = -dir; else { sortBy = c.id; dir = c.id === "title" || c.id === "rank" ? 1 : -1; }
           page = 0; update();
         };
         th.setAttribute("aria-sort", sortBy === c.id ? (dir < 0 ? "descending" : "ascending") : "none");
@@ -290,7 +294,7 @@ function renderPapers(site, doc) {
     view.slice(start, start + PAGE).forEach((p, i) => {
       const tr = document.createElement("tr");
       const cell = (text, cls) => { const td = document.createElement("td"); if (cls) td.className = cls; td.textContent = text; tr.appendChild(td); return td; };
-      cell(fmt(start + i + 1), "num");
+      cell(p.rank == null ? "–" : fmt(p.rank), "num");
       const a = document.createElement("a");
       a.href = "https://openreview.net/forum?id=" + encodeURIComponent(p.forum);
       a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = p.title;
@@ -309,10 +313,10 @@ function renderPapers(site, doc) {
     $("next").disabled = end >= view.length;
   }
   function update() {
-    view = (query ? papers.filter(p => p.key.includes(query)) : papers.slice()).sort(compare);
+    view = papers.filter(p => terms.every(t => p.key.includes(t))).sort(compare);
     head(); body();
   }
-  $("search").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); page = 0; update(); });
+  $("search").addEventListener("input", e => { terms = e.target.value.toLowerCase().split(/\s+/).filter(Boolean); page = 0; update(); });
   $("prev").onclick = () => { page--; body(); };
   $("next").onclick = () => { page++; body(); };
   update();
