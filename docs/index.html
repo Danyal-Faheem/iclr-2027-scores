@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ICLR 2027 Scores</title>
+<meta name="description" content="Score distributions and paper list for ICLR 2027 submissions during the discussion period.">
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb; --card: #ffffff; --line: #e4e3df; --grid: #eeede9;
+  --text: #0b0b0b; --text-2: #52514e; --text-3: #706f6a;
+  --series: #2a78d6; --link: #1f62b5; --row: #f5f5f2;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1a1a19; --card: #222220; --line: #3a3936; --grid: #2e2d2b;
+    --text: #f0efec; --text-2: #c3c2b7; --text-3: #a3a297;
+    --series: #3987e5; --link: #7db3f0; --row: #2a2a27;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1a1a19; --card: #222220; --line: #3a3936; --grid: #2e2d2b;
+  --text: #f0efec; --text-2: #c3c2b7; --text-3: #a3a297;
+  --series: #3987e5; --link: #7db3f0; --row: #2a2a27;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface); color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+main { max-width: 1080px; margin: 0 auto; padding: 32px 16px 56px; }
+h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 18px; margin: 40px 0 12px; }
+h3 { font-size: 14px; margin: 0 0 2px; font-weight: 600; }
+.sub { color: var(--text-2); margin: 0; }
+.note { color: var(--text-3); font-size: 13px; margin: 2px 0 8px; }
+a { color: var(--link); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 24px; }
+.tile, .chart { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.tile b { display: block; font-size: 24px; line-height: 1.2; font-variant-numeric: tabular-nums; font-weight: 600; }
+.tile span { color: var(--text-2); font-size: 13px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.bar { fill: var(--series); }
+.hit { fill: transparent; }
+.hit:hover + .bar, .bar.on { opacity: .75; }
+.gridline { stroke: var(--grid); stroke-width: 1; }
+.base { stroke: var(--line); stroke-width: 1; }
+.trend { fill: none; stroke: var(--series); stroke-width: 2; }
+.dot { fill: var(--series); stroke: var(--card); stroke-width: 2; }
+#tip { position: fixed; pointer-events: none; display: none; z-index: 5; background: var(--card); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15); font-variant-numeric: tabular-nums; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+input[type=search] { flex: 1 1 240px; min-width: 0; padding: 8px 10px; font: inherit; color: var(--text);
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px; }
+button { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+button:disabled { color: var(--text-3); cursor: default; }
+.tablewrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--grid); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--row); }
+th { font-size: 13px; color: var(--text-2); font-weight: 600; white-space: nowrap; }
+th button { border: 0; background: none; padding: 0; color: inherit; font-weight: 600; font-size: 13px; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+td.title { min-width: 280px; }
+.pager { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; color: var(--text-2); font-size: 13px; }
+.pager div { display: flex; gap: 6px; }
+footer { margin-top: 40px; color: var(--text-3); font-size: 13px; }
+details { margin-top: 10px; font-size: 13px; color: var(--text-2); }
+details table { margin-top: 6px; max-width: 320px; }
+details td, details th { padding: 3px 8px; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ICLR 2027 Scores</h1>
+  <p class="sub" id="sub">Loading…</p>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Score distributions</h2>
+  <div class="grid2">
+    <div class="chart"><h3>Mean rating per paper</h3><p class="note" id="meanNote"></p><div id="meanChart"></div></div>
+    <div class="chart"><h3>Individual ratings</h3><p class="note" id="ratingNote"></p><div id="ratingChart"></div></div>
+  </div>
+  <div class="grid3" id="otherCharts"></div>
+  <details><summary>Show these distributions as tables</summary><div id="dataTables"></div></details>
+
+  <section id="trendSection" hidden>
+    <h2>Change during discussion</h2>
+    <div class="chart"><h3>Average rating by snapshot</h3><p class="note">Mean of all individual ratings at each snapshot.</p><div id="trendChart"></div></div>
+  </section>
+
+  <h2>Papers</h2>
+  <div class="controls">
+    <input type="search" id="search" placeholder="Search titles" aria-label="Search paper titles">
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr id="head"></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+  <div class="pager"><span id="count"></span><div>
+    <button id="prev">Previous</button><button id="next">Next</button>
+  </div></div>
+
+  <footer id="foot"></footer>
+</main>
+<div id="tip" role="status"></div>
+<script>
+"use strict";
+const PAGE = 50, $ = id => document.getElementById(id), SVG = "http://www.w3.org/2000/svg";
+const fmt = n => n == null ? "–" : n.toLocaleString("en-US");
+const fix = (n, d = 2) => n == null ? "–" : n.toFixed(d);
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const when = iso => new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }) + " UTC";
+
+function el(tag, attrs = {}, parent) {
+  const node = document.createElementNS(SVG, tag);
+  for (const k in attrs) node.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(node);
+  return node;
+}
+function tip(node, text) {
+  const tipEl = $("tip");
+  node.addEventListener("mousemove", e => {
+    tipEl.textContent = text; tipEl.style.display = "block";
+    const x = Math.min(e.clientX + 12, innerWidth - tipEl.offsetWidth - 8);
+    tipEl.style.left = x + "px"; tipEl.style.top = (e.clientY - 34) + "px";
+  });
+  node.addEventListener("mouseleave", () => { tipEl.style.display = "none"; });
+}
+function niceMax(v) {
+  const p = 10 ** Math.floor(Math.log10(Math.max(v, 1)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= v) return m * p;
+  return v;
+}
+function barChart(host, data, { w = 480, h = 220, label, describe }) {
+  const m = { t: 8, r: 6, b: 22, l: 44 }, iw = w - m.l - m.r, ih = h - m.t - m.b;
+  const svg = el("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": describe });
+  const top = niceMax(Math.max(...data.map(d => d[1])));
+  for (let i = 0; i <= 4; i++) {
+    const y = m.t + ih - ih * i / 4;
+    if (i) el("line", { x1: m.l, x2: w - m.r, y1: y, y2: y, class: "gridline" }, svg);
+    el("text", { x: m.l - 6, y: y + 4, "text-anchor": "end" }, svg).textContent = fmt(Math.round(top * i / 4));
+  }
+  const step = iw / data.length, bw = Math.max(step - 2, 1), every = Math.ceil(data.length / 10);
+  data.forEach((d, i) => {
+    const bh = ih * d[1] / top, x = m.l + i * step + 1, y = m.t + ih - bh, r = Math.min(4, bw / 2, bh);
+    const hit = el("rect", { x: m.l + i * step, y: m.t, width: step, height: ih, class: "hit" }, svg);
+    el("path", { class: "bar", d: `M${x},${y + bh}V${y + r}Q${x},${y} ${x + r},${y}H${x + bw - r}Q${x + bw},${y} ${x + bw},${y + r}V${y + bh}Z` }, svg);
+    tip(hit, `${label(d[0])}: ${fmt(d[1])}`);
+    if (i % every === 0) el("text", { x: x + bw / 2, y: h - 6, "text-anchor": "middle" }, svg).textContent = d[2] ?? d[0];
+  });
+  el("line", { x1: m.l, x2: w - m.r, y1: m.t + ih, y2: m.t + ih, class: "base" }, svg);
+  host.replaceChildren(svg);
+}
+function trendChart(host, snaps) {
+  const w = 960, h = 220, m = { t: 12, r: 16, b: 24, l: 44 }, iw = w - m.l - m.r, ih = h - m.t - m.b;
+  const vals = snaps.map(s => s.mean_rating), pad = Math.max((Math.max(...vals) - Math.min(...vals)) * .25, .05);
+  const lo = Math.min(...vals) - pad, hi = Math.max(...vals) + pad;
+  const svg = el("svg", { viewBox: `0 0 ${w} ${h}`, role: "img", "aria-label": "Average rating at each snapshot" });
+  const X = i => m.l + iw * (snaps.length === 1 ? .5 : i / (snaps.length - 1)), Y = v => m.t + ih * (1 - (v - lo) / (hi - lo));
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * i / 4;
+    el("line", { x1: m.l, x2: w - m.r, y1: Y(v), y2: Y(v), class: "gridline" }, svg);
+    el("text", { x: m.l - 6, y: Y(v) + 4, "text-anchor": "end" }, svg).textContent = v.toFixed(2);
+  }
+  el("path", { class: "trend", d: snaps.map((s, i) => `${i ? "L" : "M"}${X(i)},${Y(s.mean_rating)}`).join("") }, svg);
+  const every = Math.ceil(snaps.length / 8);
+  snaps.forEach((s, i) => {
+    el("circle", { class: "dot", cx: X(i), cy: Y(s.mean_rating), r: 5 }, svg);
+    const hit = el("circle", { class: "hit", cx: X(i), cy: Y(s.mean_rating), r: 14 }, svg);
+    tip(hit, `${when(s.taken_at)}: ${s.mean_rating.toFixed(3)}`);
+    if (i % every === 0) el("text", { x: X(i), y: h - 6, "text-anchor": "middle" }, svg).textContent =
+      new Date(s.taken_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  });
+  host.replaceChildren(svg);
+}
+function dataTable(name, head, rows) {
+  const wrap = document.createElement("div");
+  const t = document.createElement("table"), cap_ = t.createCaption(); cap_.textContent = name; cap_.style.textAlign = "left";
+  const hr = t.createTHead().insertRow();
+  head.forEach(x => { const th = document.createElement("th"); th.textContent = x; hr.appendChild(th); });
+  const b = t.createTBody();
+  rows.forEach(r => { const tr = b.insertRow(); r.forEach(x => tr.insertCell().textContent = x); });
+  wrap.appendChild(t); return wrap;
+}
+
+function renderSummary(site, s) {
+  $("sub").textContent = `Snapshot of ${when(s.taken_at)}. ${site.snapshots.length} snapshot${site.snapshots.length > 1 ? "s" : ""} so far.`;
+  const c = s.top_share_cutoffs;
+  const tiles = [
+    [fmt(s.papers_with_ratings), "papers with ratings"],
+    [fmt(s.reviews), "reviews"],
+    [fix(s.mean_of_paper_means), "average paper mean"],
+    [fix(s.median_paper_mean), "median paper mean"],
+    [fix(c["0.10"]), "top 10% cutoff"],
+    [fix(c["0.25"]), "top 25% cutoff"],
+  ];
+  $("tiles").replaceChildren(...tiles.map(([v, t]) => {
+    const d = document.createElement("div"); d.className = "tile";
+    const b = document.createElement("b"); b.textContent = v;
+    const sp = document.createElement("span"); sp.textContent = t;
+    d.append(b, sp); return d;
+  }));
+
+  const width = s.mean_histogram.bin_width, bins = new Map(s.mean_histogram.bins);
+  const los = s.mean_histogram.bins.map(b => b[0]), meanData = [];
+  for (let x = Math.min(...los); x <= Math.max(...los) + 1e-9; x += width) {
+    const k = Math.round(x * 100) / 100; meanData.push([k, bins.get(k) || 0]);
+  }
+  $("meanNote").textContent = `${fmt(s.papers_with_ratings)} papers, in bins of ${width}.`;
+  barChart($("meanChart"), meanData, { label: lo => `${lo.toFixed(1)} to below ${(lo + width).toFixed(1)}`, describe: "Histogram of mean rating per paper" });
+
+  const hist = f => s.histograms[f] || [];
+  $("ratingNote").textContent = `${fmt(s.reviews)} ratings from all reviews.`;
+  barChart($("ratingChart"), hist("rating"), { label: v => `Rating ${v}`, describe: "Histogram of individual ratings" });
+
+  const others = site.fields.filter(f => f !== "rating");
+  $("otherCharts").replaceChildren(...others.map(f => {
+    const box = document.createElement("div"); box.className = "chart";
+    const h = document.createElement("h3"); h.textContent = cap(f);
+    const host = document.createElement("div");
+    box.append(h, host);
+    barChart(host, hist(f), { w: 300, h: 170, label: v => `${cap(f)} ${v}`, describe: `Histogram of ${f} scores` });
+    return box;
+  }));
+
+  $("dataTables").replaceChildren(
+    dataTable("Mean rating per paper", ["Bin start", "Papers"], meanData.map(d => [d[0].toFixed(1), fmt(d[1])])),
+    ...site.fields.map(f => dataTable(cap(f), ["Score", "Reviews"], hist(f).map(d => [d[0], fmt(d[1])])))
+  );
+
+  if (site.snapshots.length > 1) {
+    $("trendSection").hidden = false;
+    trendChart($("trendChart"), site.snapshots);
+  }
+  $("foot").textContent = `Shows paper titles, numeric scores and OpenReview links only. Withdrawn (${fmt(s.withdrawn)}) and desk-rejected (${fmt(s.desk_rejected)}) submissions are excluded. Data from the OpenReview API.`;
+}
+
+function renderPapers(site, doc) {
+  const hasChange = site.snapshots.length > 1;
+  const papers = doc.rows.map(([number, forum, title, ratings, conf, first]) => {
+    const mean = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
+    return { number, forum, title, ratings, conf, mean, reviews: ratings.length,
+      change: mean != null && first != null ? mean - first : null, key: title.toLowerCase() };
+  });
+  const cols = [
+    { id: "rank", name: "#", num: true },
+    { id: "title", name: "Title", sort: true },
+    { id: "mean", name: "Mean", num: true, sort: true },
+    { id: "ratings", name: "Ratings", num: true },
+    { id: "reviews", name: "Reviews", num: true, sort: true },
+    { id: "conf", name: "Confidence", num: true, sort: true },
+  ];
+  if (hasChange) cols.push({ id: "change", name: "Change", num: true, sort: true });
+
+  let sortBy = "mean", dir = -1, query = "", page = 0, view = [];
+  const compare = (a, b) => {
+    const x = a[sortBy], y = b[sortBy];
+    if (x == null || y == null) return (x == null) - (y == null) || a.number - b.number;
+    if (typeof x === "string") return dir * x.localeCompare(y) || a.number - b.number;
+    return dir * (x - y) || a.number - b.number;
+  };
+  function head() {
+    $("head").replaceChildren(...cols.map(c => {
+      const th = document.createElement("th");
+      if (c.num) th.className = "num";
+      if (c.sort) {
+        const b = document.createElement("button");
+        b.textContent = c.name + (sortBy === c.id ? (dir < 0 ? " ↓" : " ↑") : "");
+        b.onclick = () => {
+          if (sortBy === c.id) dir = -dir; else { sortBy = c.id; dir = c.id === "title" ? 1 : -1; }
+          page = 0; update();
+        };
+        th.setAttribute("aria-sort", sortBy === c.id ? (dir < 0 ? "descending" : "ascending") : "none");
+        th.appendChild(b);
+      } else th.textContent = c.name;
+      return th;
+    }));
+  }
+  function body() {
+    const start = page * PAGE, frag = document.createDocumentFragment();
+    view.slice(start, start + PAGE).forEach((p, i) => {
+      const tr = document.createElement("tr");
+      const cell = (text, cls) => { const td = document.createElement("td"); if (cls) td.className = cls; td.textContent = text; tr.appendChild(td); return td; };
+      cell(fmt(start + i + 1), "num");
+      const a = document.createElement("a");
+      a.href = "https://openreview.net/forum?id=" + encodeURIComponent(p.forum);
+      a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = p.title;
+      cell("", "title").appendChild(a);
+      cell(fix(p.mean), "num");
+      cell(p.ratings.join(", ") || "–", "num");
+      cell(fmt(p.reviews), "num");
+      cell(fix(p.conf), "num");
+      if (hasChange) cell(p.change == null ? "–" : (p.change > 0 ? "+" : "") + p.change.toFixed(2), "num");
+      frag.appendChild(tr);
+    });
+    $("rows").replaceChildren(frag);
+    const end = Math.min(start + PAGE, view.length);
+    $("count").textContent = view.length ? `${fmt(start + 1)}–${fmt(end)} of ${fmt(view.length)} papers` : "No papers match";
+    $("prev").disabled = page === 0;
+    $("next").disabled = end >= view.length;
+  }
+  function update() {
+    view = (query ? papers.filter(p => p.key.includes(query)) : papers.slice()).sort(compare);
+    head(); body();
+  }
+  $("search").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); page = 0; update(); });
+  $("prev").onclick = () => { page--; body(); };
+  $("next").onclick = () => { page++; body(); };
+  update();
+}
+
+(async () => {
+  try {
+    const site = await (await fetch("data/site.json")).json();
+    renderSummary(site, site.snapshots[site.snapshots.length - 1]);
+    renderPapers(site, await (await fetch("data/papers.json")).json());
+  } catch (e) {
+    console.error(e);
+    $("sub").textContent = "The score data could not be loaded.";
+  }
+})();
+</script>
+</body>
+</html>
