@@ -105,7 +105,7 @@ details td, details th { padding: 3px 8px; }
     <thead><tr id="head"></tr></thead>
     <tbody id="rows"></tbody>
   </table></div>
-  <div class="pager"><span id="count"></span><div>
+  <div class="pager"><span id="count">Loading papers…</span><div>
     <button id="prev">Previous</button><button id="next">Next</button>
   </div></div>
 
@@ -270,7 +270,7 @@ function renderSummary(site, s) {
 }
 
 function renderPapers(site, doc) {
-  const hasChange = site.snapshots.length > 1;
+  const hasChange = (site?.snapshots?.length ?? 0) > 1;
   const papers = doc.rows.map(([number, forum, title, ratings, conf, first]) => {
     const mean = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
     return { number, forum, title, ratings, conf, mean, reviews: ratings.length,
@@ -347,14 +347,30 @@ function renderPapers(site, doc) {
   update();
 }
 
+// Always revalidate data: GitHub Pages lets browsers cache files for 10 minutes, and a
+// cached file from an older build must not be paired with a newer page.
+const load = name => fetch(`data/${name}.json`, { cache: "no-cache" }).then(r => {
+  if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
+  return r.json();
+});
+
+// The charts and the paper list are independent, so a failure in one leaves the other working.
 (async () => {
+  const sitePromise = load("site"), papersPromise = load("papers");
+  papersPromise.catch(() => {});
+  let site = null;
   try {
-    const site = await (await fetch("data/site.json")).json();
+    site = await sitePromise;
     renderSummary(site, site.snapshots[site.snapshots.length - 1]);
-    renderPapers(site, await (await fetch("data/papers.json")).json());
   } catch (e) {
     console.error(e);
-    $("sub").textContent = "The score data could not be loaded.";
+    $("sub").textContent = "The charts could not be drawn. Please reload the page.";
+  }
+  try {
+    renderPapers(site, await papersPromise);
+  } catch (e) {
+    console.error(e);
+    $("count").textContent = "The paper list could not be loaded. Please reload the page.";
   }
 })();
 </script>
